@@ -12,7 +12,7 @@ use msquic::{
 };
 
 fn main() {
-    let my_ip = "94.156.25.224";
+    let my_ip = "94.156.178.64";
     //let cred = get_test_cred();
 
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
@@ -81,9 +81,11 @@ fn main() {
                         unsafe { s.into_raw() };
                         Ok::<(), Status>(())
                     };
-                    if f_send().is_err() {
-                        println!("Client send failed");
-                        conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                    loop {
+                        if f_send().is_err() {
+                            println!("Client send failed");
+                            conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                        }
                     }
                 }
                 ConnectionEvent::ShutdownComplete { .. } => {

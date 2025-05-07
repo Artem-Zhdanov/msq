@@ -37,6 +37,7 @@ fn main() {
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
         println!("Server stream event: {ev:?}");
+        let mut bytes = 0;
         match ev {
             StreamEvent::Receive {
                 absolute_offset: _,
@@ -45,8 +46,10 @@ fn main() {
                 flags: _,
             } => {
                 // Send the result to main thread.
+                bytes += buffers.len();
                 let s = buffers_to_string(buffers);
-                s_tx.send(s).unwrap();
+                println!("Received {}", bytes);
+                // s_tx.send(s).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
                 // reply to client
@@ -125,7 +128,7 @@ fn main() {
     l.start(&alpn, Some(&local_address)).unwrap();
 
     let server_s = s_rx
-        .recv_timeout(std::time::Duration::from_secs(3))
+        .recv_timeout(std::time::Duration::from_secs(3000))
         .expect("Server failed receive request.");
 
     println!("{} ", server_s);
