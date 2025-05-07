@@ -52,24 +52,25 @@ fn main() {
                 // s_tx.send(s).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
-                // reply to client
-                let b = "hello from server".as_bytes().to_vec();
-                let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
-                let ctx = Box::new((b, b_ref));
-                if unsafe {
-                    stream.send(
-                        ctx.1.as_ref(),
-                        SendFlags::FIN,
-                        ctx.as_ref() as *const _ as *const c_void,
-                    )
-                }
-                .is_err()
-                {
-                    let _ = stream.shutdown(StreamShutdownFlags::ABORT, 0);
-                } else {
-                    // detach buffer
-                    let _ = Box::into_raw(ctx);
-                }
+                println!("Peer sent shutdown");
+                // // reply to client
+                // let b = "hello from server".as_bytes().to_vec();
+                // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
+                // let ctx = Box::new((b, b_ref));
+                // if unsafe {
+                //     stream.send(
+                //         ctx.1.as_ref(),
+                //         SendFlags::FIN,
+                //         ctx.as_ref() as *const _ as *const c_void,
+                //     )
+                // }
+                // .is_err()
+                // {
+                //     let _ = stream.shutdown(StreamShutdownFlags::ABORT, 0);
+                // } else {
+                //     // detach buffer
+                //     let _ = Box::into_raw(ctx);
+                // }
             }
             StreamEvent::SendComplete {
                 cancelled: _,

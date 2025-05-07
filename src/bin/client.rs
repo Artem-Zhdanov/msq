@@ -84,8 +84,9 @@ fn main() {
                     loop {
                         if f_send().is_err() {
                             println!("Client send failed");
-                            conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                            // conn.shutdown(ConnectionShutdownFlags::NONE, 0);
                         }
+                        println!("Sent");
                     }
                 }
                 ConnectionEvent::ShutdownComplete { .. } => {
