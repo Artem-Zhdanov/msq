@@ -12,6 +12,7 @@ use msquic::{
 };
 
 fn main() {
+    let my_ip = "94.156.25.224";
     let cred = get_test_cred();
 
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
@@ -115,7 +116,9 @@ fn main() {
     })
     .unwrap();
     let local_address = Addr::from(SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        // IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        //    "94.156.178.64".parse().unwrap(),
+        my_ip.parse().unwrap(),
         4567,
     ));
     println!("Starting listener");
@@ -200,7 +203,7 @@ fn main() {
         println!("open client connection");
         let conn = Connection::open(&reg, conn_handler).unwrap();
 
-        conn.start(&client_config, "127.0.0.1", 4567).unwrap();
+        conn.start(&client_config, my_ip, 4567).unwrap();
 
         let server_s = s_rx
             .recv_timeout(std::time::Duration::from_secs(3))
