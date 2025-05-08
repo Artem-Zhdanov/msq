@@ -1,8 +1,7 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use clap::Parser;
-use futures::stream;
 use msq::{
     MAGIC_NUMBER,
     config::{CliArgs, Config, Subscriber, read_yaml},

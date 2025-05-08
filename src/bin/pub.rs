@@ -76,38 +76,17 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
         tracing::info!("Client connection event: {ev:?}");
         match ev {
             ConnectionEvent::Connected { .. } => {
-                // for _ in 0..100000 {
-                if let Err(status) = open_stream_and_send(&conn) {
-                    tracing::error!("Client send failed with status {status}");
-                    conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                } else {
-                    tracing::info!("sent..");
-                }
-                sleep(Duration::from_millis(300));
+                for _ in 0..100000 {
+                    println!("Sent..");
+                    if let Err(status) = open_stream_and_send(&conn) {
+                        tracing::error!("Client send failed with status {status}");
+                        conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                    } else {
+                        tracing::info!("sent..");
+                    }
 
-                if let Err(status) = open_stream_and_send(&conn) {
-                    tracing::error!("Client send failed with status {status}");
-                    conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                } else {
-                    tracing::info!("sent..");
+                    sleep(Duration::from_millis(1000));
                 }
-                sleep(Duration::from_millis(300));
-
-                if let Err(status) = open_stream_and_send(&conn) {
-                    tracing::error!("Client send failed with status {status}");
-                    conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                } else {
-                    tracing::info!("sent..");
-                }
-                sleep(Duration::from_millis(300));
-
-                if let Err(status) = open_stream_and_send(&conn) {
-                    tracing::error!("Client send failed with status {status}");
-                    conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                } else {
-                    tracing::info!("sent..");
-                }
-                //  }
             }
             ConnectionEvent::ShutdownComplete { .. } => {
                 // No need to close. Main function owns the handle.
@@ -149,7 +128,6 @@ fn stream_handler(stream: StreamRef, ev: StreamEvent) -> Result<(), Status> {
 
 fn open_stream_and_send(conn: &ConnectionRef) -> Result<(), Status> {
     let s = Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
-    tracing::info!("Started stream id: {}", s.get_stream_id().unwrap());
     s.start(StreamStartFlags::NONE)?;
     // BufferRef needs to be heap allocated
     let mut data_to_send = vec![42u8; BLOCK_SIZE];
