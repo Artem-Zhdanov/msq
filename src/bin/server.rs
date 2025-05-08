@@ -11,6 +11,7 @@ use msquic::{
     ListenerEvent, Registration, RegistrationConfig, SendFlags, ServerResumptionLevel, Settings,
     Status, Stream, StreamEvent, StreamOpenFlags, StreamRef, StreamShutdownFlags, StreamStartFlags,
 };
+const BLOCK_SIZE: usize = 1024 * 1024;
 
 fn main() {
     let my_ip = "94.156.178.64"; // "94.156.25.224";
@@ -36,8 +37,7 @@ fn main() {
     let (s_tx, s_rx) = std::sync::mpsc::channel::<usize>();
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
-        println!("Server stream event: {ev:?}");
-        let mut bytes = 0;
+        println!("Stream event: {ev:?}");
         match ev {
             StreamEvent::Receive {
                 absolute_offset: _,
@@ -75,6 +75,7 @@ fn main() {
                 cancelled: _,
                 client_context,
             } => unsafe {
+                println!("Send comlete");
                 let _ = Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>));
             },
             StreamEvent::ShutdownComplete { .. } => {
@@ -87,7 +88,7 @@ fn main() {
     };
 
     let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        println!("Server connection event: {ev:?}");
+        println!("Connection event: {ev:?}");
         match ev {
             ConnectionEvent::PeerStreamStarted { stream, flags: _ } => {
                 stream.set_callback_handler(stream_handler.clone());
@@ -102,7 +103,7 @@ fn main() {
     };
 
     let l = Listener::open(&reg, move |_, ev| {
-        println!("Server listener event: {ev:?}");
+        println!("Listener event: {ev:?}");
         match ev {
             ListenerEvent::NewConnection {
                 info: _,
@@ -118,13 +119,9 @@ fn main() {
         Ok(())
     })
     .unwrap();
-    let local_address = Addr::from(SocketAddr::new(
-        // IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        //    "94.156.178.64".parse().unwrap(),
-        my_ip.parse().unwrap(),
-        4567,
-    ));
+
     println!("Starting listener");
+    let local_address = Addr::from(SocketAddr::new(my_ip.parse().unwrap(), 4567));
     l.start(&alpn, Some(&local_address)).unwrap();
 
     let mut total_bytes = 0;
@@ -135,7 +132,7 @@ fn main() {
             moment = Some(Instant::now());
         }
         total_bytes += bytes_received;
-        if total_bytes == 1024 * 1024 * 1024 {
+        if total_bytes == BLOCK_SIZE {
             let ms = moment.unwrap().elapsed().as_millis();
             let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
 

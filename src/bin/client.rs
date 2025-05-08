@@ -13,6 +13,7 @@ use msquic::{
     Status, Stream, StreamEvent, StreamOpenFlags, StreamRef, StreamShutdownFlags, StreamStartFlags,
 };
 
+const BLOCK_SIZE: usize = 1024 * 1024;
 fn main() {
     let my_ip = "94.156.178.64";
     //let cred = get_test_cred();
@@ -73,7 +74,7 @@ fn main() {
                         )?;
                         s.start(StreamStartFlags::NONE)?;
                         // BufferRef needs to be heap allocated
-                        let b = vec![42u8; 1024 * 1024 * 1024];
+                        let b = vec![42u8; BLOCK_SIZE];
                         let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
                         let ctx = Box::new((b, b_ref));
                         unsafe {
@@ -91,7 +92,7 @@ fn main() {
                     };
                     if f_send().is_err() {
                         println!("Client send failed");
-                        // conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                        conn.shutdown(ConnectionShutdownFlags::NONE, 0);
                     }
                     println!("Sent");
                 }
