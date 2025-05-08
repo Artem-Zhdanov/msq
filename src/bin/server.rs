@@ -97,7 +97,10 @@ fn main() {
 
     println!("Starting listener");
     let local_address = Addr::from(SocketAddr::new(my_ip.parse().unwrap(), 4567));
+    let local_address_2 = Addr::from(SocketAddr::new(my_ip.parse().unwrap(), 4568));
+
     l.start(&alpn, Some(&local_address)).unwrap();
+    l.start(&alpn, Some(&local_address_2)).unwrap();
 
     let mut total_bytes = 0;
     let mut moment: Option<Instant> = None;

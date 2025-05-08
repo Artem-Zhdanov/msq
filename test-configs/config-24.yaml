@@ -1,0 +1,5 @@
+subscriber:
+
+publisher:
+        - addr: "94.156.178.66"
+          ports: "5000-5049"
