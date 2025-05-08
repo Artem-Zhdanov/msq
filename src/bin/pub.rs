@@ -44,7 +44,6 @@ async fn main() {
             let delay = Duration::from_micros(i as u64 * delta);
 
             let h = std::thread::spawn(move || {
-                println!("Running publisher");
                 std::thread::sleep(delay);
                 if let Err(err) = start_client(peer_addr, port, metrics_clone) {
                     tracing::error!("Publisher task failed: {}", err);
@@ -55,11 +54,10 @@ async fn main() {
     }
 
     tokio::signal::ctrl_c().await.unwrap();
-    eprintln!("Ctrl+C pressed, exiting.");
     std::process::exit(0);
 }
 
-fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
+fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<()> {
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
     let alpn = [BufferRef::from("qtest")];
 
@@ -73,16 +71,17 @@ fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<(
     }
 
     let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        println!("Client connection event: {ev:?}");
+        tracing::info!("Client connection event: {ev:?}");
         match ev {
             ConnectionEvent::Connected { .. } => {
-                for _ in 0..10 {
-                    if open_stream_and_send(&conn).is_err() {
-                        println!("Client send failed");
+                for _ in 0..100000 {
+                    if let Err(status) = open_stream_and_send(&conn) {
+                        tracing::error!("Client send failed with status {status}");
                         conn.shutdown(ConnectionShutdownFlags::NONE, 0);
+                    } else {
+                        tracing::info!("sent..");
                     }
-                    sleep(Duration::from_millis(200));
-                    println!("Sent");
+                    sleep(Duration::from_millis(300));
                 }
             }
             ConnectionEvent::ShutdownComplete { .. } => {
@@ -93,7 +92,7 @@ fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<(
         Ok(())
     };
 
-    println!("open client connection");
+    tracing::info!("open client connection");
     let conn = Connection::open(&reg, conn_handler).unwrap();
 
     conn.start(&client_config, &peer_addr, port).unwrap();
@@ -103,16 +102,15 @@ fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<(
 }
 
 fn stream_handler(stream: StreamRef, ev: StreamEvent) -> Result<(), Status> {
-    println!("Client stream event: {ev:?}");
+    tracing::info!("Client stream event: {ev:?}");
     match ev {
         StreamEvent::StartComplete { id, .. } => {
             assert_eq!(stream.get_stream_id().unwrap(), id);
         }
         StreamEvent::SendComplete {
-            cancelled,
+            cancelled: _,
             client_context,
         } => {
-            println!("cancelled {}", cancelled);
             let _ = unsafe { Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>)) };
         }
 

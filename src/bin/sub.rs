@@ -45,7 +45,7 @@ async fn main() {
             let metrics_clone = metrics.clone();
             let addr_clone = address.clone();
             let _ = std::thread::spawn(move || {
-                println!("Running servers (subscribers)");
+                tracing::info!("Running servers (subscribers)");
 
                 if let Err(err) = start_server(addr_clone, port, metrics_clone) {
                     tracing::error!("Subscriber error: {}", err);
@@ -55,7 +55,6 @@ async fn main() {
     }
 
     tokio::signal::ctrl_c().await.unwrap();
-    eprintln!("Ctrl+C pressed, exiting.");
     std::process::exit(0);
 }
 
@@ -82,7 +81,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     let (s_tx, s_rx) = std::sync::mpsc::channel::<ReceivedData>();
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
-        println!("Stream event: {ev:?}");
+        tracing::info!("Stream event: {ev:?}");
         match ev {
             StreamEvent::Receive {
                 absolute_offset: _,
@@ -92,32 +91,23 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
             } => {
                 // Send the result to main thread.
                 let bytes = buffers_as_bytes(buffers);
-                tracing::info!("AAA Received");
                 if let Err(err) = s_tx.send(ReceivedData::Data(bytes)) {
                     tracing::error!("mpsc error 1: {:?}", err);
-                } else {
-                    tracing::info!("Sent data");
                 }
             }
-            StreamEvent::PeerSendShutdown { .. } => {
-                tracing::info!("AAA Peer sent stream shutdown");
-            }
+            StreamEvent::PeerSendShutdown { .. } => {}
             StreamEvent::SendComplete {
                 cancelled: _,
                 client_context,
             } => unsafe {
-                tracing::info!("Send complete");
                 let _ = Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>));
             },
             StreamEvent::ShutdownComplete { .. } => {
                 // auto close
-                unsafe { Stream::from_raw(stream.as_raw()) };
-                tracing::info!("AAA Shutdown complete");
                 if let Err(err) = s_tx.send(ReceivedData::Fin) {
                     tracing::error!("mpsc error 2: {:?}", err);
-                } else {
-                    tracing::info!("Sent fin");
                 }
+                unsafe { Stream::from_raw(stream.as_raw()) };
             }
             _ => {}
         };
@@ -125,7 +115,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     };
 
     let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        println!("Connection event: {ev:?}");
+        tracing::info!("Connection event: {ev:?}");
         match ev {
             ConnectionEvent::PeerStreamStarted { stream, flags: _ } => {
                 stream.set_callback_handler(stream_handler.clone());
@@ -140,7 +130,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     };
 
     let l = Listener::open(&reg, move |_, ev| {
-        println!("Listener event: {ev:?}");
+        tracing::info!("Listener event: {ev:?}");
         match ev {
             ListenerEvent::NewConnection {
                 info: _,
@@ -159,7 +149,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
 
     let local_address = Addr::from(SocketAddr::new(address.parse().unwrap(), port));
     l.start(&alpn, Some(&local_address)).unwrap();
-    println!("Started listener on {:?}", local_address);
+    tracing::info!("Started listener on {:?}", local_address);
 
     // let mut total_bytes = 0;
     // let mut moment: Option<Instant> = None;
