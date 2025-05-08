@@ -2,6 +2,7 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use clap::Parser;
+use futures::stream;
 use msq::{
     MAGIC_NUMBER,
     config::{CliArgs, Config, Subscriber, read_yaml},
@@ -55,7 +56,9 @@ async fn main() {
     }
 
     tokio::signal::ctrl_c().await.unwrap();
-    std::process::exit(0);
+    unsafe {
+        libc::_exit(0);
+    }
 }
 
 fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
@@ -90,6 +93,10 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 flags: _,
             } => {
                 // Send the result to main thread.
+                let stream_id = stream.get_stream_id().unwrap(); // TODO
+
+                println!(">>>>>>>>>>> stream_id {}", stream_id);
+
                 let bytes = buffers_as_bytes(buffers);
                 if let Err(err) = s_tx.send(ReceivedData::Data(bytes)) {
                     tracing::error!("mpsc error 1: {:?}", err);

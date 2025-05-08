@@ -780,6 +780,7 @@ dependencies = [
  "clap",
  "futures",
  "futures-util",
+ "libc",
  "msquic",
  "opentelemetry",
  "opentelemetry-otlp",
