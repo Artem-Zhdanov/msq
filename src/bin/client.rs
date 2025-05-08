@@ -73,7 +73,7 @@ fn main() {
                         )?;
                         s.start(StreamStartFlags::NONE)?;
                         // BufferRef needs to be heap allocated
-                        let b = vec![42u8; 1024 * 1024];
+                        let b = vec![42u8; 1024 * 1024 * 1024];
                         let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
                         let ctx = Box::new((b, b_ref));
                         unsafe {

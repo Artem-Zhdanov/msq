@@ -135,12 +135,12 @@ fn main() {
             moment = Some(Instant::now());
         }
         total_bytes += bytes_received;
-        if total_bytes == 1024 * 1024 {
+        if total_bytes == 1024 * 1024 * 1024 {
             let ms = moment.unwrap().elapsed().as_millis();
-            let speed = (total_bytes / ms as usize) * 1_000;
+            let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
 
             println!(
-                "total bytes {} elapsed {} ms,  speed {} bytes/millis ",
+                "total bytes {} elapsed {} ms,  speed {} MByte ",
                 total_bytes, ms, speed
             );
             moment = None;
