@@ -1,17 +1,10 @@
-use std::{
-    ffi::c_void,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Arc,
-    time::Instant,
-};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use msquic::{
     Addr, BufferRef, CertificateFile, Configuration, Connection, ConnectionEvent, ConnectionRef,
-    ConnectionShutdownFlags, Credential, CredentialConfig, CredentialFlags, Listener,
-    ListenerEvent, Registration, RegistrationConfig, SendFlags, ServerResumptionLevel, Settings,
-    Status, Stream, StreamEvent, StreamOpenFlags, StreamRef, StreamShutdownFlags, StreamStartFlags,
+    Credential, CredentialConfig, CredentialFlags, Listener, ListenerEvent, Registration,
+    RegistrationConfig, ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
 };
-const BLOCK_SIZE: usize = 1024 * 1024;
 
 fn main() {
     let my_ip = "94.156.178.64"; // "94.156.25.224";
@@ -51,25 +44,7 @@ fn main() {
                 s_tx.send(s).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
-                println!("Peer sent shutdown");
-                // // reply to client
-                // let b = "hello from server".as_bytes().to_vec();
-                // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
-                // let ctx = Box::new((b, b_ref));
-                // if unsafe {
-                //     stream.send(
-                //         ctx.1.as_ref(),
-                //         SendFlags::FIN,
-                //         ctx.as_ref() as *const _ as *const c_void,
-                //     )
-                // }
-                // .is_err()
-                // {
-                //     let _ = stream.shutdown(StreamShutdownFlags::ABORT, 0);
-                // } else {
-                //     // detach buffer
-                //     let _ = Box::into_raw(ctx);
-                // }
+                println!("Peer sent stream shutdown");
             }
             StreamEvent::SendComplete {
                 cancelled: _,
@@ -132,7 +107,7 @@ fn main() {
             moment = Some(Instant::now());
         }
         total_bytes += bytes_received;
-        if total_bytes == BLOCK_SIZE {
+        if total_bytes > 1024 * 1024 {
             let ms = moment.unwrap().elapsed().as_millis();
             let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
 
