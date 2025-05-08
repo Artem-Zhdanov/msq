@@ -4,6 +4,7 @@ pub mod publisher;
 pub mod quic_config;
 pub mod subscriber;
 use futures::future;
+use msquic::{CertificateFile, Credential};
 use tokio::time::{Instant, sleep_until};
 
 pub const MAGIC_NUMBER: u64 = 123456789876543210;
@@ -35,36 +36,47 @@ pub fn ports_string_to_vec(input: &str) -> anyhow::Result<Vec<u16>> {
     Ok(ports.into_iter().collect())
 }
 
-pub async fn wait_optional_deadline(timeout: Option<Instant>) {
-    match timeout {
-        Some(instant) => sleep_until(instant).await,
-        None => future::pending::<()>().await,
-    }
-}
-
-#[macro_export]
-macro_rules! flush_send {
-    ($conn:expr, $socket:expr, $write_buf:expr, $peer:expr) => {{
-        loop {
-            let write = match $conn.send(&mut $write_buf) {
-                Ok((write, _)) => write,
-                Err(quiche::Error::Done) => {
-                    // No data, ok
-                    break;
-                }
-                Err(err) => {
-                    anyhow::bail!("Can't create initial datagram: {:?}", err);
-                }
-            };
-            if write > 0 {
-                if let Err(err) = $socket.send_to(&$write_buf[..write], $peer).await {
-                    tracing::error!("Error to send data to socket {:?}", err);
-                }
-            } else {
-                break;
-            }
+pub fn get_test_cred() -> Credential {
+    let cert_dir = std::env::temp_dir().join("msquic_test_rs");
+    let key = "key.pem";
+    let cert = "cert.pem";
+    let key_path = cert_dir.join(key);
+    let cert_path = cert_dir.join(cert);
+    if !key_path.exists() || !cert_path.exists() {
+        // remove the dir
+        let _ = std::fs::remove_dir_all(&cert_dir);
+        std::fs::create_dir_all(&cert_dir).expect("cannot create cert dir");
+        // generate test cert using openssl cli
+        let output = std::process::Command::new("openssl")
+            .args([
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:4096",
+                "-keyout",
+                "key.pem",
+                "-out",
+                "cert.pem",
+                "-sha256",
+                "-days",
+                "3650",
+                "-nodes",
+                "-subj",
+                "/CN=localhost",
+            ])
+            .current_dir(cert_dir)
+            .stderr(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .output()
+            .expect("cannot generate cert");
+        if !output.status.success() {
+            panic!("generate cert failed");
         }
-    }};
+    }
+    Credential::CertificateFile(CertificateFile::new(
+        key_path.display().to_string(),
+        cert_path.display().to_string(),
+    ))
 }
 
 #[cfg(test)]

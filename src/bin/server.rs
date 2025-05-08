@@ -1,5 +1,13 @@
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 
+use anyhow::Result;
+use clap::Parser;
+use msq::{
+    config::{CliArgs, Config, Peers, Subscriber, read_yaml},
+    get_test_cred,
+    metrics::{Metrics, init_metrics},
+    ports_string_to_vec, publisher, subscriber,
+};
 use msquic::{
     Addr, BufferRef, CertificateFile, Configuration, Connection, ConnectionEvent, ConnectionRef,
     Credential, CredentialConfig, CredentialFlags, Listener, ListenerEvent, Registration,
@@ -7,7 +15,39 @@ use msquic::{
 };
 
 fn main() {
-    let my_ip = "94.156.178.64"; // "94.156.25.224";
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(false)
+        .init();
+
+    let cli: CliArgs = CliArgs::parse();
+    let config = match read_yaml::<Config>(&cli.config) {
+        Ok(config) => config,
+        Err(error) => {
+            tracing::error!("Error parsing config file {:?}: {:?}", cli.config, error);
+            std::process::exit(1);
+        }
+    };
+
+    let metrics = init_metrics();
+
+    // Run subscribers
+    for Subscriber { ports } in config.subscriber {
+        for port in ports_string_to_vec(&ports).unwrap() {
+            let metrics_clone = metrics.clone();
+            let addr_clone = config.my_address.clone();
+            let _ = std::thread::spawn(move || {
+                println!("Running servers (AKA subscribers)");
+
+                if let Err(err) = start_server(addr_clone, port, metrics_clone) {
+                    tracing::error!("Subscriber error: {}", err);
+                }
+            });
+        }
+    }
+}
+
+fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
     let cred = get_test_cred();
 
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
@@ -50,7 +90,7 @@ fn main() {
                 cancelled: _,
                 client_context,
             } => unsafe {
-                println!("Send comlete");
+                println!("Send complete");
                 let _ = Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>));
             },
             StreamEvent::ShutdownComplete { .. } => {
@@ -95,12 +135,9 @@ fn main() {
     })
     .unwrap();
 
-    println!("Starting listener");
-    let local_address = Addr::from(SocketAddr::new(my_ip.parse().unwrap(), 4567));
-    let local_address_2 = Addr::from(SocketAddr::new(my_ip.parse().unwrap(), 4568));
-
+    let local_address = Addr::from(SocketAddr::new(address.parse().unwrap(), port));
     l.start(&alpn, Some(&local_address)).unwrap();
-    l.start(&alpn, Some(&local_address_2)).unwrap();
+    println!("Started listener on {:?}", local_address);
 
     let mut total_bytes = 0;
     let mut moment: Option<Instant> = None;
@@ -122,51 +159,7 @@ fn main() {
             total_bytes = 0;
         }
     }
-
-    l.stop();
-}
-
-pub fn get_test_cred() -> Credential {
-    let cert_dir = std::env::temp_dir().join("msquic_test_rs");
-    let key = "key.pem";
-    let cert = "cert.pem";
-    let key_path = cert_dir.join(key);
-    let cert_path = cert_dir.join(cert);
-    if !key_path.exists() || !cert_path.exists() {
-        // remove the dir
-        let _ = std::fs::remove_dir_all(&cert_dir);
-        std::fs::create_dir_all(&cert_dir).expect("cannot create cert dir");
-        // generate test cert using openssl cli
-        let output = std::process::Command::new("openssl")
-            .args([
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:4096",
-                "-keyout",
-                "key.pem",
-                "-out",
-                "cert.pem",
-                "-sha256",
-                "-days",
-                "3650",
-                "-nodes",
-                "-subj",
-                "/CN=localhost",
-            ])
-            .current_dir(cert_dir)
-            .stderr(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .output()
-            .expect("cannot generate cert");
-        if !output.status.success() {
-            panic!("generate cert failed");
-        }
-    }
-    Credential::CertificateFile(CertificateFile::new(
-        key_path.display().to_string(),
-        cert_path.display().to_string(),
-    ))
+    Ok(())
 }
 
 fn buffers_to_string(buffers: &[BufferRef]) -> usize {

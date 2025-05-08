@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use msq::{
-    config::{ActiveSubscribers, CliArgs, Config, Subscriber, read_yaml},
+    config::{CliArgs, Config, Peers, Subscriber, read_yaml},
     metrics::init_metrics,
     ports_string_to_vec, publisher, subscriber,
 };
@@ -27,10 +27,10 @@ async fn main() -> Result<()> {
     let metrics = init_metrics();
 
     // Run subscribers
-    for Subscriber { addr_listen, ports } in config.subscriber {
+    for Subscriber { ports } in config.subscriber {
         for port in ports_string_to_vec(&ports)? {
             let metrics_clone = metrics.clone();
-            let addr_clone = addr_listen.clone();
+            let addr_clone = config.my_address.clone();
             let _ = tokio::spawn(async move {
                 println!("Running subscribers");
 
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
     sleep(Duration::from_secs(1)).await;
 
     // Run publisher
-    for ActiveSubscribers {
+    for Peers {
         addr_listen,
         addr_peer,
         ports,

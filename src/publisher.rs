@@ -1,7 +1,7 @@
 use crate::config::BLOCK_SIZE;
 use crate::metrics::Metrics;
 use crate::quic_config::configure_client;
-use crate::{MAGIC_NUMBER, flush_send, now_ms, wait_optional_deadline};
+use crate::{MAGIC_NUMBER, now_ms};
 use anyhow::{Result, bail};
 use opentelemetry::KeyValue;
 

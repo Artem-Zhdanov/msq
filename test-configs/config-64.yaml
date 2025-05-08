@@ -1,4 +1,6 @@
+my_address: 94.156.178.64
 subscriber:
-  - ports: "5001-5300"
+  - ports: "5001"
 
 publisher:
+
