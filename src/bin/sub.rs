@@ -3,16 +3,22 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use anyhow::Result;
 use clap::Parser;
 use msq::{
+    MAGIC_NUMBER,
     config::{CliArgs, Config, Subscriber, read_yaml},
     get_test_cred,
     metrics::{Metrics, init_metrics},
-    ports_string_to_vec,
+    now_ms, ports_string_to_vec,
 };
 use msquic::{
     Addr, BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, CredentialConfig,
     CredentialFlags, Listener, ListenerEvent, Registration, RegistrationConfig,
     ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
 };
+
+enum ReceivedData {
+    Data(Vec<u8>),
+    Fin,
+}
 
 #[tokio::main]
 async fn main() {
@@ -72,7 +78,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     let config = Arc::new(config);
     let config_clone = config.clone();
 
-    let (s_tx, s_rx) = std::sync::mpsc::channel::<usize>();
+    let (s_tx, s_rx) = std::sync::mpsc::channel::<ReceivedData>();
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
         println!("Stream event: {ev:?}");
@@ -84,12 +90,12 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 flags: _,
             } => {
                 // Send the result to main thread.
-                let s = buffers_to_string(buffers);
+                let bytes = buffers_as_bytes(buffers);
                 tracing::info!("AAA Received");
-                s_tx.send(s).unwrap();
+                s_tx.send(ReceivedData::Data(bytes)).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
-                println!("AAA Peer sent stream shutdown");
+                tracing::info!("AAA Peer sent stream shutdown");
             }
             StreamEvent::SendComplete {
                 cancelled: _,
@@ -102,6 +108,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 // auto close
                 unsafe { Stream::from_raw(stream.as_raw()) };
                 tracing::info!("AAA Shutdown complete");
+                s_tx.send(ReceivedData::Fin).unwrap();
             }
             _ => {}
         };
@@ -148,30 +155,47 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     let mut total_bytes = 0;
     let mut moment: Option<Instant> = None;
 
-    while let Ok(bytes_received) = s_rx.recv() {
-        if moment.is_none() {
-            moment = Some(Instant::now());
-        }
-        total_bytes += bytes_received;
-        if total_bytes > 1024 * 1024 {
-            let ms = moment.unwrap().elapsed().as_millis();
-            let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
+    let mut block_agg = vec![];
+    while let Ok(received_data) = s_rx.recv() {
+        match received_data {
+            ReceivedData::Data(mut v) => {
+                block_agg.append(&mut v);
+            }
+            ReceivedData::Fin => {
+                let magic = u64::from_be_bytes(block_agg[..8].try_into()?);
+                assert_eq!(magic, MAGIC_NUMBER, "Protocol mismatch!");
 
-            println!(
-                "total bytes {} elapsed {} ms,  speed {} MByte ",
-                total_bytes, ms, speed
-            );
-            moment = None;
-            total_bytes = 0;
+                let sent_ts = u64::from_be_bytes(block_agg[8..16].try_into()?);
+                let latency = now_ms() - sent_ts;
+                metrics.latency.record(latency, &[]);
+                tracing::info!("Latency ms: {latency}");
+                block_agg.clear();
+            }
         }
+
+        //     if moment.is_none() {
+        //         moment = Some(Instant::now());
+        //     }
+        //     total_bytes += bytes_received;
+        //     if total_bytes > 1024 * 1024 {
+        //         let ms = moment.unwrap().elapsed().as_millis();
+        //         let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
+
+        //         println!(
+        //             "total bytes {} elapsed {} ms,  speed {} MByte ",
+        //             total_bytes, ms, speed
+        //         );
+        //         moment = None;
+        //         total_bytes = 0;
+        //     }
     }
     Ok(())
 }
 
-fn buffers_to_string(buffers: &[BufferRef]) -> usize {
+fn buffers_as_bytes(buffers: &[BufferRef]) -> Vec<u8> {
     let mut v = Vec::new();
     for b in buffers {
         v.extend_from_slice(b.as_bytes());
     }
-    v.len()
+    v
 }

@@ -2,4 +2,4 @@ subscriber:
 
 publisher:
   - addr_peer: 94.156.178.64
-    ports: "5001,5002"
+    ports: "5001"
