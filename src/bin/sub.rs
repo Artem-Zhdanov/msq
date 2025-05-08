@@ -93,7 +93,11 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 // Send the result to main thread.
                 let bytes = buffers_as_bytes(buffers);
                 tracing::info!("AAA Received");
-                s_tx.send(ReceivedData::Data(bytes)).unwrap();
+                if let Err(err) = s_tx.send(ReceivedData::Data(bytes)) {
+                    tracing::error!("mpsc error 1: {:?}", err);
+                } else {
+                    tracing::info!("Sent data");
+                }
             }
             StreamEvent::PeerSendShutdown { .. } => {
                 tracing::info!("AAA Peer sent stream shutdown");
@@ -110,7 +114,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 unsafe { Stream::from_raw(stream.as_raw()) };
                 tracing::info!("AAA Shutdown complete");
                 if let Err(err) = s_tx.send(ReceivedData::Fin) {
-                    tracing::error!("mpsc error: {:?}", err);
+                    tracing::error!("mpsc error 2: {:?}", err);
                 } else {
                     tracing::info!("Sent fin");
                 }
@@ -157,18 +161,19 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     l.start(&alpn, Some(&local_address)).unwrap();
     println!("Started listener on {:?}", local_address);
 
-    let mut total_bytes = 0;
-    let mut moment: Option<Instant> = None;
+    // let mut total_bytes = 0;
+    // let mut moment: Option<Instant> = None;
 
     let mut block_agg = vec![];
     while let Ok(received_data) = s_rx.recv() {
-        tracing::info!("RCVD: {:?}", received_data);
-
         match received_data {
             ReceivedData::Data(mut v) => {
+                tracing::info!("RCVD: bytes arr len {}", v.len());
                 block_agg.append(&mut v);
             }
             ReceivedData::Fin => {
+                tracing::info!("RCVD FIN");
+
                 let magic = u64::from_be_bytes(block_agg[..8].try_into()?);
                 assert_eq!(magic, MAGIC_NUMBER, "Protocol mismatch!");
 
