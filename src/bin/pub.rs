@@ -52,6 +52,7 @@ async fn main() {
             });
         }
     }
+    tokio::signal::ctrl_c().await.unwrap();
 }
 
 fn start_client(

@@ -38,7 +38,7 @@ async fn main() {
             let metrics_clone = metrics.clone();
             let addr_clone = config.my_address.clone();
             let _ = std::thread::spawn(move || {
-                println!("Running servers (AKA subscribers)");
+                println!("Running servers (subscribers)");
 
                 if let Err(err) = start_server(addr_clone, port, metrics_clone) {
                     tracing::error!("Subscriber error: {}", err);
@@ -46,6 +46,8 @@ async fn main() {
             });
         }
     }
+
+    tokio::signal::ctrl_c().await.unwrap();
 }
 
 fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
