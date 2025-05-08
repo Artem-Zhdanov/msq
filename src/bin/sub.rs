@@ -3,15 +3,15 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use anyhow::Result;
 use clap::Parser;
 use msq::{
-    config::{CliArgs, Config, Peers, Subscriber, read_yaml},
+    config::{CliArgs, Config, Subscriber, read_yaml},
     get_test_cred,
     metrics::{Metrics, init_metrics},
-    ports_string_to_vec, publisher, subscriber,
+    ports_string_to_vec,
 };
 use msquic::{
-    Addr, BufferRef, CertificateFile, Configuration, Connection, ConnectionEvent, ConnectionRef,
-    Credential, CredentialConfig, CredentialFlags, Listener, ListenerEvent, Registration,
-    RegistrationConfig, ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
+    Addr, BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, CredentialConfig,
+    CredentialFlags, Listener, ListenerEvent, Registration, RegistrationConfig,
+    ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
 };
 
 #[tokio::main]
@@ -48,6 +48,8 @@ async fn main() {
     }
 
     tokio::signal::ctrl_c().await.unwrap();
+    eprintln!("Ctrl+C pressed, exiting.");
+    std::process::exit(0);
 }
 
 fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
@@ -83,22 +85,23 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
             } => {
                 // Send the result to main thread.
                 let s = buffers_to_string(buffers);
-                println!("Received");
+                tracing::info!("AAA Received");
                 s_tx.send(s).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
-                println!("Peer sent stream shutdown");
+                println!("AAA Peer sent stream shutdown");
             }
             StreamEvent::SendComplete {
                 cancelled: _,
                 client_context,
             } => unsafe {
-                println!("Send complete");
+                tracing::info!("Send complete");
                 let _ = Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>));
             },
             StreamEvent::ShutdownComplete { .. } => {
                 // auto close
                 unsafe { Stream::from_raw(stream.as_raw()) };
+                tracing::info!("AAA Shutdown complete");
             }
             _ => {}
         };

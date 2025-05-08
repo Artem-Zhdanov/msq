@@ -5,7 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 use msq::config::{CliArgs, Config, Peers, read_yaml};
 use msq::metrics::{Metrics, init_metrics};
-use msq::ports_string_to_vec;
+use msq::{MAGIC_NUMBER, now_ms, ports_string_to_vec};
 use msquic::{
     BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, ConnectionShutdownFlags,
     CredentialConfig, CredentialFlags, Registration, RegistrationConfig, SendFlags, Settings,
@@ -33,25 +33,30 @@ async fn main() {
     let metrics = init_metrics();
 
     // Run publisher
+    let mut _handles: Vec<std::thread::JoinHandle<()>> = vec![];
     for Peers { addr_peer, ports } in config.publisher {
         let ports = ports_string_to_vec(&ports).unwrap();
-        let jitter = 330000 / ports.len() as u64;
+        let delta = 330000 / ports.len() as u64;
 
         for (i, port) in ports.into_iter().enumerate() {
             let peer_addr = addr_peer.clone();
             let metrics_clone = metrics.clone();
-            let delay = Duration::from_micros(i as u64 * jitter);
+            let delay = Duration::from_micros(i as u64 * delta);
 
-            let _ = std::thread::spawn(move || {
+            let h = std::thread::spawn(move || {
                 println!("Running publisher");
                 std::thread::sleep(delay);
                 if let Err(err) = start_client(peer_addr, port, metrics_clone) {
                     tracing::error!("Publisher task failed: {}", err);
                 }
             });
+            _handles.push(h);
         }
     }
+
     tokio::signal::ctrl_c().await.unwrap();
+    eprintln!("Ctrl+C pressed, exiting.");
+    std::process::exit(0);
 }
 
 fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
@@ -83,9 +88,7 @@ fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<(
             ConnectionEvent::ShutdownComplete { .. } => {
                 // No need to close. Main function owns the handle.
             }
-            _ => {
-                println!("@@@");
-            }
+            _ => {}
         };
         Ok(())
     };
@@ -95,7 +98,7 @@ fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<(
 
     conn.start(&client_config, &peer_addr, port).unwrap();
 
-    sleep(Duration::from_secs(1000000));
+    std::thread::park();
     Ok(())
 }
 
@@ -125,11 +128,14 @@ fn open_stream_and_send(conn: &ConnectionRef) -> Result<(), Status> {
     let s = Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
     s.start(StreamStartFlags::NONE)?;
     // BufferRef needs to be heap allocated
-    let b = vec![42u8; BLOCK_SIZE];
-    let b_ref = Box::new([BufferRef::from((*b).as_ref() as &[u8])]);
+    let mut data_to_send = vec![42u8; BLOCK_SIZE];
+    data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
+    data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
+
+    let b_ref = Box::new([BufferRef::from((*data_to_send).as_ref() as &[u8])]);
     // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
 
-    let ctx = Box::new((b, b_ref));
+    let ctx = Box::new((data_to_send, b_ref));
     unsafe {
         s.send(
             ctx.1.as_slice(),
