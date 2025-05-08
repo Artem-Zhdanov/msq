@@ -13,7 +13,9 @@ use msquic::{
 };
 
 const BLOCK_SIZE: usize = 1024 * 1024;
-fn main() {
+
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_ansi(false)
