@@ -15,6 +15,7 @@ use msquic::{
     ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
 };
 
+#[derive(Debug)]
 enum ReceivedData {
     Data(Vec<u8>),
     Fin,
@@ -108,7 +109,11 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 // auto close
                 unsafe { Stream::from_raw(stream.as_raw()) };
                 tracing::info!("AAA Shutdown complete");
-                s_tx.send(ReceivedData::Fin).unwrap();
+                if let Err(err) = s_tx.send(ReceivedData::Fin) {
+                    tracing::error!("mpsc error: {:?}", err);
+                } else {
+                    tracing::info!("Sent fin");
+                }
             }
             _ => {}
         };
@@ -157,6 +162,8 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
 
     let mut block_agg = vec![];
     while let Ok(received_data) = s_rx.recv() {
+        tracing::info!("RCVD: {:?}", received_data);
+
         match received_data {
             ReceivedData::Data(mut v) => {
                 block_agg.append(&mut v);
