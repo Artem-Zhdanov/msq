@@ -2,6 +2,8 @@ use std::{
     ffi::c_void,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
+    thread::sleep,
+    time::Duration,
 };
 
 use msquic::{
@@ -19,7 +21,8 @@ fn main() {
     let alpn = [BufferRef::from("qtest")];
 
     // create client and send msg
-    let client_settings = Settings::new().set_IdleTimeoutMs(1000).set_MaxAckDelayMs(1);
+    let client_settings = Settings::new().set_IdleTimeoutMs(100000);
+
     let client_config = Configuration::open(&reg, &alpn, Some(&client_settings)).unwrap();
     {
         let cred_config = CredentialConfig::new_client()
@@ -33,12 +36,13 @@ fn main() {
             println!("Client stream event: {ev:?}");
             match ev {
                 StreamEvent::StartComplete { id, .. } => {
-                    assert_eq!(stream.get_stream_id().unwrap(), id);
+                    // assert_eq!(stream.get_stream_id().unwrap(), id);
                 }
                 StreamEvent::SendComplete {
-                    cancelled: _,
+                    cancelled,
                     client_context,
                 } => {
+                    println!("cancelled {}", cancelled);
                     let _ = unsafe {
                         Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>))
                     };
@@ -62,10 +66,14 @@ fn main() {
                 ConnectionEvent::Connected { .. } => {
                     // open stream and send
                     let f_send = || {
-                        let s = Stream::open(&conn, StreamOpenFlags::NONE, stream_handler.clone())?;
+                        let s = Stream::open(
+                            &conn,
+                            StreamOpenFlags::UNIDIRECTIONAL,
+                            stream_handler.clone(),
+                        )?;
                         s.start(StreamStartFlags::NONE)?;
                         // BufferRef needs to be heap allocated
-                        let b = "hello from client".as_bytes().to_vec();
+                        let b = vec![42u8; 1024 * 1024];
                         let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
                         let ctx = Box::new((b, b_ref));
                         unsafe {
@@ -81,18 +89,18 @@ fn main() {
                         unsafe { s.into_raw() };
                         Ok::<(), Status>(())
                     };
-                    loop {
-                        if f_send().is_err() {
-                            println!("Client send failed");
-                            // conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                        }
-                        println!("Sent");
+                    if f_send().is_err() {
+                        println!("Client send failed");
+                        // conn.shutdown(ConnectionShutdownFlags::NONE, 0);
                     }
+                    println!("Sent");
                 }
                 ConnectionEvent::ShutdownComplete { .. } => {
                     // No need to close. Main function owns the handle.
                 }
-                _ => {}
+                _ => {
+                    println!("@@@");
+                }
             };
             Ok(())
         };

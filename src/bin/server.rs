@@ -19,9 +19,8 @@ fn main() {
     let alpn = [BufferRef::from("qtest")];
     let settings = Settings::new()
         .set_ServerResumptionLevel(ServerResumptionLevel::ResumeAndZerortt)
-        .set_PeerBidiStreamCount(1)
-        .set_PeerUnidiStreamCount(1)
-        .set_MaxAckDelayMs(1);
+        .set_PeerBidiStreamCount(100)
+        .set_PeerUnidiStreamCount(100);
 
     let config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
 
@@ -33,7 +32,7 @@ fn main() {
     let config = Arc::new(config);
     let config_clone = config.clone();
 
-    let (s_tx, s_rx) = std::sync::mpsc::channel::<String>();
+    let (s_tx, s_rx) = std::sync::mpsc::channel::<usize>();
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
         println!("Server stream event: {ev:?}");
@@ -46,10 +45,9 @@ fn main() {
                 flags: _,
             } => {
                 // Send the result to main thread.
-                bytes += buffers.len();
                 let s = buffers_to_string(buffers);
-                println!("Received {}", bytes);
-                // s_tx.send(s).unwrap();
+                println!("Received");
+                s_tx.send(s).unwrap();
             }
             StreamEvent::PeerSendShutdown { .. } => {
                 println!("Peer sent shutdown");
@@ -128,11 +126,9 @@ fn main() {
     println!("Starting listener");
     l.start(&alpn, Some(&local_address)).unwrap();
 
-    let server_s = s_rx
-        .recv_timeout(std::time::Duration::from_secs(3000))
-        .expect("Server failed receive request.");
-
-    println!("{} ", server_s);
+    while let Ok(r) = s_rx.recv() {
+        println!("Got {} ", r);
+    }
 
     l.stop();
 }
@@ -180,10 +176,10 @@ pub fn get_test_cred() -> Credential {
     ))
 }
 
-fn buffers_to_string(buffers: &[BufferRef]) -> String {
-    let mut v = Vec::new();
-    for b in buffers {
-        v.extend_from_slice(b.as_bytes());
+fn buffers_to_string(buffers: &[BufferRef]) -> usize {
+    let mut cnt = 0;
+    for _ in buffers {
+        cnt += 1;
     }
-    String::from_utf8_lossy(v.as_slice()).to_string()
+    cnt
 }
