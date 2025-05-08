@@ -2,6 +2,7 @@ use std::{
     ffi::c_void,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
+    time::Instant,
 };
 
 use msquic::{
@@ -126,8 +127,25 @@ fn main() {
     println!("Starting listener");
     l.start(&alpn, Some(&local_address)).unwrap();
 
-    while let Ok(r) = s_rx.recv() {
-        println!("Got {} ", r);
+    let mut total_bytes = 0;
+    let mut moment: Option<Instant> = None;
+
+    while let Ok(bytes_received) = s_rx.recv() {
+        if moment.is_none() {
+            moment = Some(Instant::now());
+        }
+        total_bytes += bytes_received;
+        if total_bytes == 1024 * 1024 {
+            let ms = moment.unwrap().elapsed().as_millis();
+            let speed = (total_bytes / ms as usize) * 1_000;
+
+            println!(
+                "total bytes {} elapsed {} ms,  speed {} bytes/millis ",
+                total_bytes, ms, speed
+            );
+            moment = None;
+            total_bytes = 0;
+        }
     }
 
     l.stop();
@@ -177,9 +195,9 @@ pub fn get_test_cred() -> Credential {
 }
 
 fn buffers_to_string(buffers: &[BufferRef]) -> usize {
-    let mut cnt = 0;
-    for _ in buffers {
-        cnt += 1;
+    let mut v = Vec::new();
+    for b in buffers {
+        v.extend_from_slice(b.as_bytes());
     }
-    cnt
+    v.len()
 }
