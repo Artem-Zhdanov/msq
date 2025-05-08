@@ -33,10 +33,10 @@ async fn main() {
     let metrics = init_metrics();
 
     // Run subscribers
-    for Subscriber { ports } in config.subscriber {
+    for Subscriber { address, ports } in config.subscriber {
         for port in ports_string_to_vec(&ports).unwrap() {
             let metrics_clone = metrics.clone();
-            let addr_clone = config.my_address.clone();
+            let addr_clone = address.clone();
             let _ = std::thread::spawn(move || {
                 println!("Running servers (subscribers)");
 

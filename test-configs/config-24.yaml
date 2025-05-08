@@ -1,6 +1,5 @@
-my_address: 94.156.25.224
 subscriber:
 
 publisher:
   - addr_peer: 94.156.178.64
-    ports: "5001"
+    ports: "5001,5002"

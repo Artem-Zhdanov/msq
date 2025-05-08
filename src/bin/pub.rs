@@ -1,5 +1,5 @@
+use std::sync::Arc;
 use std::{ffi::c_void, thread::sleep, time::Duration};
-use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use clap::Parser;
@@ -39,14 +39,13 @@ async fn main() {
 
         for (i, port) in ports.into_iter().enumerate() {
             let peer_addr = addr_peer.clone();
-            let listen_addr = config.my_address.clone();
             let metrics_clone = metrics.clone();
             let delay = Duration::from_micros(i as u64 * jitter);
 
             let _ = std::thread::spawn(move || {
                 println!("Running publisher");
                 std::thread::sleep(delay);
-                if let Err(err) = start_client(listen_addr, peer_addr, port, metrics_clone) {
+                if let Err(err) = start_client(peer_addr, port, metrics_clone) {
                     tracing::error!("Publisher task failed: {}", err);
                 }
             });
@@ -55,12 +54,7 @@ async fn main() {
     tokio::signal::ctrl_c().await.unwrap();
 }
 
-fn start_client(
-    listen_addr: String,
-    peer_addr: String,
-    port: u16,
-    metrics: Arc<Metrics>,
-) -> Result<()> {
+fn start_client(peer_addr: String, port: u16, metrics: Arc<Metrics>) -> Result<()> {
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
     let alpn = [BufferRef::from("qtest")];
 
