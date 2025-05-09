@@ -77,15 +77,21 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
         match ev {
             ConnectionEvent::Connected { .. } => {
                 println!("Sent..");
-                for _ in 0..20 {
-                    if let Err(status) = open_stream_and_send(&conn) {
-                        tracing::error!("Client send failed with status {status}");
-                        conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                    } else {
-                        tracing::info!("sent..");
+                let conn_clone = Arc::new(conn);
+
+                let _ = std::thread::spawn(move || {
+                    for _ in 0..20000000 {
+                        if let Err(status) = open_stream_and_send(&conn_clone) {
+                            tracing::error!("Client send failed with status {status}");
+                            conn_clone.shutdown(ConnectionShutdownFlags::NONE, 0);
+                        } else {
+                            tracing::info!("sent..");
+                        }
+                        sleep(Duration::from_millis(100));
                     }
-                    sleep(Duration::from_millis(100));
-                }
+                });
+
+                //   }
             }
             ConnectionEvent::ShutdownComplete { .. } => {
                 // No need to close. Main function owns the handle.

@@ -171,12 +171,15 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 tracing::info!("RCVD FIN");
 
                 let magic = u64::from_be_bytes(block_agg[..8].try_into()?);
-                assert_eq!(magic, MAGIC_NUMBER, "Protocol mismatch!");
+                if magic != MAGIC_NUMBER {
+                    tracing::info!("Protocol mismatch!");
+                } else {
+                    let sent_ts = u64::from_be_bytes(block_agg[8..16].try_into()?);
+                    let latency = now_ms() - sent_ts;
+                    metrics.latency.record(latency, &[]);
+                    tracing::info!("Latency ms: {latency}");
+                }
 
-                let sent_ts = u64::from_be_bytes(block_agg[8..16].try_into()?);
-                let latency = now_ms() - sent_ts;
-                metrics.latency.record(latency, &[]);
-                tracing::info!("Latency ms: {latency}");
                 block_agg.clear();
             }
         }
