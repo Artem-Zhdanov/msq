@@ -76,16 +76,15 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
         tracing::info!("Client connection event: {ev:?}");
         match ev {
             ConnectionEvent::Connected { .. } => {
-                for _ in 0..100000 {
-                    println!("Sent..");
+                println!("Sent..");
+                for _ in 0..20 {
                     if let Err(status) = open_stream_and_send(&conn) {
                         tracing::error!("Client send failed with status {status}");
                         conn.shutdown(ConnectionShutdownFlags::NONE, 0);
                     } else {
                         tracing::info!("sent..");
                     }
-
-                    sleep(Duration::from_millis(1000));
+                    sleep(Duration::from_millis(100));
                 }
             }
             ConnectionEvent::ShutdownComplete { .. } => {
@@ -129,8 +128,10 @@ fn stream_handler(stream: StreamRef, ev: StreamEvent) -> Result<(), Status> {
 fn open_stream_and_send(conn: &ConnectionRef) -> Result<(), Status> {
     let s = Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
     s.start(StreamStartFlags::NONE)?;
-    // BufferRef needs to be heap allocated
     let mut data_to_send = vec![42u8; BLOCK_SIZE];
+
+    // BufferRef needs to be heap allocated
+
     data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
     data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
 
@@ -151,3 +152,33 @@ fn open_stream_and_send(conn: &ConnectionRef) -> Result<(), Status> {
     unsafe { s.into_raw() };
     Ok::<(), Status>(())
 }
+//
+//
+//
+// let open_stream_and_send = || {
+//     let s =
+//         Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
+//     s.start(StreamStartFlags::NONE)?;
+//     // BufferRef needs to be heap allocated
+//     let mut data_to_send = vec![42u8; BLOCK_SIZE];
+
+//     data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
+//     data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
+
+//     let b_ref = Box::new([BufferRef::from((*data_to_send).as_ref() as &[u8])]);
+//     // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
+
+//     let ctx = Box::new((data_to_send, b_ref));
+//     unsafe {
+//         s.send(
+//             ctx.1.as_slice(),
+//             SendFlags::FIN,
+//             ctx.as_ref() as *const _ as *const c_void,
+//         )
+//     }?;
+//     // detach the buffer
+//     let _ = Box::into_raw(ctx);
+//     // detach stream and let callback cleanup
+//     unsafe { s.into_raw() };
+//     Ok::<(), Status>(())
+// };
