@@ -8,6 +8,7 @@ use msq::{
     get_test_cred,
     metrics::{Metrics, init_metrics},
     now_ms, ports_string_to_vec,
+    quic_settings::get_quic_settings,
 };
 use msquic::{
     Addr, BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, CredentialConfig,
@@ -67,10 +68,12 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
 
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
     let alpn = [BufferRef::from("qtest")];
-    let settings = Settings::new()
-        .set_ServerResumptionLevel(ServerResumptionLevel::ResumeAndZerortt)
-        .set_PeerBidiStreamCount(100)
-        .set_PeerUnidiStreamCount(100);
+    let settings = get_quic_settings();
+
+    // let settings = Settings::new()
+    //     .set_ServerResumptionLevel(ServerResumptionLevel::ResumeAndZerortt)
+    //     .set_PeerBidiStreamCount(10)
+    //     .set_PeerUnidiStreamCount(1000);
 
     let config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
 
@@ -85,7 +88,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     let (s_tx, s_rx) = std::sync::mpsc::channel::<ReceivedData>();
 
     let stream_handler = move |stream: StreamRef, ev: StreamEvent| {
-        tracing::info!("Stream event: {ev:?}");
+        // tracing::info!("Stream event: {ev:?}");
         match ev {
             StreamEvent::Receive {
                 absolute_offset: _,

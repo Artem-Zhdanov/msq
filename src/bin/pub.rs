@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 use msq::config::{CliArgs, Config, Peers, read_yaml};
 use msq::metrics::{Metrics, init_metrics};
+use msq::quic_settings::get_quic_settings;
 use msq::{MAGIC_NUMBER, now_ms, ports_string_to_vec};
 use msquic::{
     BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, ConnectionShutdownFlags,
@@ -63,17 +64,19 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
     let reg = Registration::new(&RegistrationConfig::default()).unwrap();
     let alpn = [BufferRef::from("qtest")];
 
-    let client_settings = Settings::new().set_IdleTimeoutMs(100000);
+    // let settings = Settings::new().set_IdleTimeoutMs(100000);
+    let settings = get_quic_settings();
 
-    let client_config = Configuration::open(&reg, &alpn, Some(&client_settings)).unwrap();
+    let client_config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
     {
         let cred_config = CredentialConfig::new_client()
             .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION);
+
         client_config.load_credential(&cred_config).unwrap();
     }
 
     let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        tracing::info!("Client connection event: {ev:?}");
+        // tracing::info!("Client connection event: {ev:?}");
         match ev {
             ConnectionEvent::Connected { .. } => {
                 println!("Sent..");
