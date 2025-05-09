@@ -96,8 +96,6 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 // Send results to the main thread.
                 match stream.get_stream_id() {
                     Ok(stream_id) => {
-                        let stream_id = stream.get_stream_id().unwrap(); // TODO
-
                         let bytes = buffers_as_bytes(buffers);
                         if let Err(err) = s_tx.send(ReceivedData::Data((stream_id, bytes))) {
                             tracing::error!("mpsc error 1: {:?}", err);
