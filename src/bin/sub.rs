@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use clap::Parser;
@@ -15,10 +15,12 @@ use msquic::{
     ServerResumptionLevel, Settings, Stream, StreamEvent, StreamRef,
 };
 
+type StreamId = u64;
+
 #[derive(Debug)]
 enum ReceivedData {
-    Data(Vec<u8>),
-    Fin,
+    Data((StreamId, Vec<u8>)),
+    Fin(StreamId),
 }
 
 #[tokio::main]
@@ -91,14 +93,20 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 buffers,
                 flags: _,
             } => {
-                // Send the result to main thread.
-                let stream_id = stream.get_stream_id().unwrap(); // TODO
+                // Send results to the main thread.
+                match stream.get_stream_id() {
+                    Ok(stream_id) => {
+                        let stream_id = stream.get_stream_id().unwrap(); // TODO
 
-                println!(">>>>>>>>>>> stream_id {}", stream_id);
-
-                let bytes = buffers_as_bytes(buffers);
-                if let Err(err) = s_tx.send(ReceivedData::Data(bytes)) {
-                    tracing::error!("mpsc error 1: {:?}", err);
+                        let bytes = buffers_as_bytes(buffers);
+                        if let Err(err) = s_tx.send(ReceivedData::Data((stream_id, bytes))) {
+                            tracing::error!("mpsc error 1: {:?}", err);
+                        }
+                    }
+                    Err(status) => tracing::error!(
+                        "StreamEvent::Receive, can't get stream_id, status {:?}",
+                        status
+                    ),
                 }
             }
             StreamEvent::PeerSendShutdown { .. } => {}
@@ -109,10 +117,19 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                 let _ = Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>));
             },
             StreamEvent::ShutdownComplete { .. } => {
-                // auto close
-                if let Err(err) = s_tx.send(ReceivedData::Fin) {
-                    tracing::error!("mpsc error 2: {:?}", err);
+                // Send stream FIN to the main thread.
+                match stream.get_stream_id() {
+                    Ok(stream_id) => {
+                        if let Err(err) = s_tx.send(ReceivedData::Fin(stream_id)) {
+                            tracing::error!("mpsc error 2: {:?}", err);
+                        }
+                    }
+                    Err(status) => tracing::error!(
+                        "StreamEvent::ShutdownComplete, can't get stream_id, status {:?}",
+                        status
+                    ),
                 }
+                // auto close
                 unsafe { Stream::from_raw(stream.as_raw()) };
             }
             _ => {}
@@ -157,48 +174,35 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     l.start(&alpn, Some(&local_address)).unwrap();
     tracing::info!("Started listener on {:?}", local_address);
 
-    // let mut total_bytes = 0;
-    // let mut moment: Option<Instant> = None;
-
-    let mut block_agg = vec![];
+    let mut block_agg: HashMap<StreamId, Vec<u8>> = HashMap::new();
     while let Ok(received_data) = s_rx.recv() {
         match received_data {
-            ReceivedData::Data(mut v) => {
-                tracing::info!("RCVD: bytes arr len {}", v.len());
-                block_agg.append(&mut v);
+            ReceivedData::Data((stream_id, bytes)) => {
+                tracing::info!("RCVD: bytes arr len {}", bytes.len());
+                block_agg
+                    .entry(stream_id)
+                    .or_default()
+                    .extend_from_slice(&bytes);
             }
-            ReceivedData::Fin => {
+            ReceivedData::Fin(stream_id) => {
                 tracing::info!("RCVD FIN");
+                if let Some(data) = block_agg.remove(&stream_id) {
+                    let magic = u64::from_be_bytes(data[..8].try_into()?);
+                    if magic != MAGIC_NUMBER {
+                        tracing::error!("Protocol mismatch!");
+                    } else {
+                        let sent_ts = u64::from_be_bytes(data[8..16].try_into()?);
+                        let latency = now_ms() - sent_ts;
+                        metrics.latency.record(latency, &[]);
+                        tracing::info!("Latency ms: {latency}");
+                    }
 
-                let magic = u64::from_be_bytes(block_agg[..8].try_into()?);
-                if magic != MAGIC_NUMBER {
-                    tracing::info!("Protocol mismatch!");
+                    block_agg.clear();
                 } else {
-                    let sent_ts = u64::from_be_bytes(block_agg[8..16].try_into()?);
-                    let latency = now_ms() - sent_ts;
-                    metrics.latency.record(latency, &[]);
-                    tracing::info!("Latency ms: {latency}");
+                    tracing::error!("Received FIN for stream {stream_id}, wich data not found");
                 }
-
-                block_agg.clear();
             }
         }
-
-        //     if moment.is_none() {
-        //         moment = Some(Instant::now());
-        //     }
-        //     total_bytes += bytes_received;
-        //     if total_bytes > 1024 * 1024 {
-        //         let ms = moment.unwrap().elapsed().as_millis();
-        //         let speed = (total_bytes / ms as usize) * 1_000 / 1024 / 1024;
-
-        //         println!(
-        //             "total bytes {} elapsed {} ms,  speed {} MByte ",
-        //             total_bytes, ms, speed
-        //         );
-        //         moment = None;
-        //         total_bytes = 0;
-        //     }
     }
     Ok(())
 }
