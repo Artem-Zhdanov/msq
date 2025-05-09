@@ -79,7 +79,6 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
         // tracing::info!("Client connection event: {ev:?}");
         match ev {
             ConnectionEvent::Connected { .. } => {
-                println!("Sent..");
                 let conn_clone = Arc::new(conn);
 
                 let _ = std::thread::spawn(move || {

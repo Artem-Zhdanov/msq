@@ -193,7 +193,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
                         tracing::error!("Protocol mismatch!");
                     } else {
                         let sent_ts = u64::from_be_bytes(data[8..16].try_into()?);
-                        let latency = now_ms() - sent_ts;
+                        let latency = now_ms().saturating_sub(sent_ts);
                         metrics.latency.record(latency, &[]);
                         tracing::info!("Latency ms: {latency}");
                     }
@@ -205,6 +205,8 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
             }
         }
     }
+    tracing::error!("Thread is going to exit!");
+
     Ok(())
 }
 

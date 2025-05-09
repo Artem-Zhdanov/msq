@@ -1,6 +1,6 @@
 subscriber:
   - address: 94.156.25.225
-    ports: "5000"
+    ports: "5000-5099"
 
 publisher:
 

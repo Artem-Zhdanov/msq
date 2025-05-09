@@ -3,7 +3,10 @@ subscriber:
 
 publisher:
   - addr_peer: 94.156.178.66
-    ports: "5000"
+    ports: "5000-5299"
 
   - addr_peer: 94.156.25.224
-    ports: "5000"
+    ports: "5000-5099"
+
+  - addr_peer: 94.156.25.225
+    ports: "5000-5099"
