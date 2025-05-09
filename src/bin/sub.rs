@@ -136,7 +136,7 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     };
 
     let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        tracing::info!("Connection event: {ev:?}");
+        // tracing::info!("Connection event: {ev:?}");
         match ev {
             ConnectionEvent::PeerStreamStarted { stream, flags: _ } => {
                 stream.set_callback_handler(stream_handler.clone());
@@ -176,14 +176,14 @@ fn start_server(address: String, port: u16, metrics: Arc<Metrics>) -> Result<()>
     while let Ok(received_data) = s_rx.recv() {
         match received_data {
             ReceivedData::Data((stream_id, bytes)) => {
-                tracing::info!("RCVD: bytes arr len {}", bytes.len());
+                // tracing::info!("RCVD: bytes arr len {}", bytes.len());
                 block_agg
                     .entry(stream_id)
                     .or_default()
                     .extend_from_slice(&bytes);
             }
             ReceivedData::Fin(stream_id) => {
-                tracing::info!("RCVD FIN");
+                // tracing::info!("RCVD FIN");
                 if let Some(data) = block_agg.remove(&stream_id) {
                     let magic = u64::from_be_bytes(data[..8].try_into()?);
                     if magic != MAGIC_NUMBER {

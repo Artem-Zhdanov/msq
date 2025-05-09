@@ -85,9 +85,9 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
                             tracing::error!("Client send failed with status {status}");
                             conn_clone.shutdown(ConnectionShutdownFlags::NONE, 0);
                         } else {
-                            tracing::info!("sent..");
+                            // tracing::info!("sent..");
                         }
-                        sleep(Duration::from_millis(300));
+                        sleep(Duration::from_millis(330));
                     }
                 });
 
@@ -111,7 +111,7 @@ fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<
 }
 
 fn stream_handler(stream: StreamRef, ev: StreamEvent) -> Result<(), Status> {
-    tracing::info!("Client stream event: {ev:?}");
+    // tracing::info!("Client stream event: {ev:?}");
     match ev {
         StreamEvent::StartComplete { id, .. } => {
             assert_eq!(stream.get_stream_id().unwrap(), id);
