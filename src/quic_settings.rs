@@ -8,4 +8,6 @@ pub fn get_quic_settings() -> Settings {
         .set_ServerResumptionLevel(ServerResumptionLevel::ResumeAndZerortt)
         .set_PeerBidiStreamCount(10)
         .set_PeerUnidiStreamCount(1000)
+        .set_InitialRttMs(2)
+        .set_MaxAckDelayMs(1)
 }

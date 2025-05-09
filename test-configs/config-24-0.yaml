@@ -1,0 +1,6 @@
+subscriber:
+  - address: 94.156.25.224
+    ports: "5000-5039"
+
+publisher:
+
