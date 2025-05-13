@@ -99,7 +99,7 @@ async fn start_client(
         stream.write_all(&data_to_send).await?;
         stream.flush().await?;
 
-        let pause = Duration::from_millis(300).saturating_sub(moment.elapsed());
+        let pause = Duration::from_millis(330).saturating_sub(moment.elapsed());
         tracing::info!("Pause is {:?}", pause);
         tokio::time::sleep(pause).await;
 

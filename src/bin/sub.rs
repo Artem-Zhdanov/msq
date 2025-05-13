@@ -61,7 +61,10 @@ async fn main() {
                 l.start(&alpn, Some(local_address)).unwrap();
                 tracing::info!("Started listener on {:?}", local_address);
 
-                let rt = Runtime::new().unwrap();
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
                 // let _ = tokio::spawn(async move { start_server(l, metrics_clone).await });
                 rt.block_on(start_server(l, metrics_clone)).unwrap();
             });
