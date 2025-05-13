@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-msquic = "2.5.0-beta4"
 anyhow = "1.0.98"
 # ring = "0.17.14"
 clap = { version = "4.5.37", features = ["derive"] }
@@ -23,3 +22,4 @@ opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
 rand = "0.9.1"
 futures = "0.3.31"
 libc = "0.2.172"
+msquic-async = { path = "../msquic-async-rs/msquic-async" }

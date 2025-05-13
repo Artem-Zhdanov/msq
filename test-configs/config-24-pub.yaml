@@ -1,0 +1,5 @@
+subscriber:
+
+publisher:
+  - addr_peer: 94.156.25.224
+    ports: "5001-5300"

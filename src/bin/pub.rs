@@ -1,19 +1,19 @@
-use std::sync::Arc;
-use std::{ffi::c_void, thread::sleep, time::Duration};
-
 use anyhow::Result;
 use clap::Parser;
-use msq::config::{CliArgs, Config, Peers, read_yaml};
+use msq::config::{BLOCK_SIZE, CliArgs, Config, Peers, read_yaml};
 use msq::metrics::{Metrics, init_metrics};
 use msq::quic_settings::get_quic_settings;
 use msq::{MAGIC_NUMBER, now_ms, ports_string_to_vec};
-use msquic::{
-    BufferRef, Configuration, Connection, ConnectionEvent, ConnectionRef, ConnectionShutdownFlags,
-    CredentialConfig, CredentialFlags, Registration, RegistrationConfig, SendFlags, Settings,
-    Status, Stream, StreamEvent, StreamOpenFlags, StreamRef, StreamStartFlags,
+use msquic_async::Connection;
+use msquic_async::msquic::{
+    Api, BufferRef, Configuration, CredentialConfig, CredentialFlags, Registration,
+    RegistrationConfig,
 };
-
-const BLOCK_SIZE: usize = 300 * 1024;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
+use tokio::io::AsyncWriteExt;
+use tokio::runtime::Runtime;
 
 #[tokio::main]
 async fn main() {
@@ -34,23 +34,43 @@ async fn main() {
     let metrics = init_metrics();
 
     // Run publisher
-    let mut _handles: Vec<std::thread::JoinHandle<()>> = vec![];
     for Peers { addr_peer, ports } in config.publisher {
         let ports = ports_string_to_vec(&ports).unwrap();
         let delta = 330000 / ports.len() as u64;
 
         for (i, port) in ports.into_iter().enumerate() {
-            let peer_addr = addr_peer.clone();
-            let metrics_clone = metrics.clone();
-            let delay = Duration::from_micros(i as u64 * delta);
+            // Distribute threads starting time
+            std::thread::sleep(Duration::from_micros(i as u64 * delta));
+            let metrics = metrics.clone();
+            let addr_peer = addr_peer.clone();
+            let _ = std::thread::spawn(move || {
+                let peer_addr = addr_peer.clone();
+                let metrics_clone = metrics.clone();
 
-            let h = std::thread::spawn(move || {
-                std::thread::sleep(delay);
-                if let Err(err) = start_client(peer_addr, port, metrics_clone) {
-                    tracing::error!("Publisher task failed: {}", err);
-                }
+                let reg = Registration::new(&RegistrationConfig::default()).unwrap();
+                let alpn = [BufferRef::from("qtest")];
+                let settings = get_quic_settings();
+                let configuration = Configuration::new(&reg, &alpn, Some(&settings)).unwrap();
+
+                let cred_config = CredentialConfig::new_client()
+                    .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION);
+
+                configuration.load_credential(&cred_config).unwrap();
+
+                let conn = msquic_async::Connection::new(&reg).unwrap();
+
+                // This is just a test, I'm not going to handle publisher faults.
+                // We will see it in metrics as reduced number of messages sent
+                let rt = Runtime::new().unwrap();
+                rt.block_on(start_client(
+                    conn,
+                    configuration,
+                    peer_addr,
+                    port,
+                    metrics_clone,
+                ))
+                .unwrap();
             });
-            _handles.push(h);
         }
     }
 
@@ -60,126 +80,29 @@ async fn main() {
     }
 }
 
-fn start_client(peer_addr: String, port: u16, _metrics: Arc<Metrics>) -> Result<()> {
-    let reg = Registration::new(&RegistrationConfig::default()).unwrap();
-    let alpn = [BufferRef::from("qtest")];
+async fn start_client(
+    conn: Connection,
+    configuration: Configuration,
+    peer_addr: String,
+    port: u16,
+    _metrics: Arc<Metrics>,
+) -> Result<()> {
+    conn.start(&configuration, &peer_addr, port).await.unwrap();
+    loop {
+        let mut stream = conn
+            .open_outbound_stream(msquic_async::StreamType::Unidirectional, false)
+            .await?;
+        let mut data_to_send = vec![42u8; BLOCK_SIZE];
+        data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
+        data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
+        let moment = Instant::now();
+        stream.write_all(&data_to_send).await?;
+        stream.flush().await?;
 
-    // let settings = Settings::new().set_IdleTimeoutMs(100000);
-    let settings = get_quic_settings();
+        let pause = Duration::from_millis(300).saturating_sub(moment.elapsed());
+        tracing::info!("Pause is {:?}", pause);
+        tokio::time::sleep(pause).await;
 
-    let client_config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
-    {
-        let cred_config = CredentialConfig::new_client()
-            .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION);
-
-        client_config.load_credential(&cred_config).unwrap();
+        // tracing::info!("Perf {:#?}", Api::get_perf());
     }
-
-    let conn_handler = move |conn: ConnectionRef, ev: ConnectionEvent| {
-        // tracing::info!("Client connection event: {ev:?}");
-        match ev {
-            ConnectionEvent::Connected { .. } => {
-                let _ = std::thread::spawn(move || {
-                    loop {
-                        if let Err(status) = open_stream_and_send(&conn) {
-                            tracing::error!("Client send failed with status {status}");
-                            conn.shutdown(ConnectionShutdownFlags::NONE, 0);
-                        }
-                        sleep(Duration::from_millis(330));
-                    }
-                });
-            }
-            ConnectionEvent::ShutdownComplete { .. } => {
-                // No need to close. Main function owns the handle.
-            }
-            _ => {}
-        };
-        Ok(())
-    };
-
-    tracing::info!("open client connection");
-    let conn = Connection::open(&reg, conn_handler).unwrap();
-
-    conn.start(&client_config, &peer_addr, port).unwrap();
-
-    std::thread::park();
-    Ok(())
 }
-
-fn stream_handler(stream: StreamRef, ev: StreamEvent) -> Result<(), Status> {
-    // tracing::info!("Client stream event: {ev:?}");
-    match ev {
-        StreamEvent::StartComplete { id, .. } => {
-            assert_eq!(stream.get_stream_id().unwrap(), id);
-        }
-        StreamEvent::SendComplete {
-            cancelled: _,
-            client_context,
-        } => {
-            let _ = unsafe { Box::from_raw(client_context as *mut (Vec<u8>, Box<[BufferRef; 1]>)) };
-        }
-
-        StreamEvent::ShutdownComplete { .. } => {
-            let _ = unsafe { Stream::from_raw(stream.as_raw()) };
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn open_stream_and_send(conn: &ConnectionRef) -> Result<(), Status> {
-    let s = Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
-    s.start(StreamStartFlags::NONE)?;
-
-    // BufferRef needs to be heap allocated
-    let mut data_to_send = vec![42u8; BLOCK_SIZE];
-    data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
-    data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
-
-    let b_ref = Box::new([BufferRef::from((*data_to_send).as_ref() as &[u8])]);
-    // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
-
-    let ctx = Box::new((data_to_send, b_ref));
-    unsafe {
-        s.send(
-            ctx.1.as_slice(),
-            SendFlags::FIN,
-            ctx.as_ref() as *const _ as *const c_void,
-        )
-    }?;
-    // detach the buffer
-    let _ = Box::into_raw(ctx);
-    // detach stream and let callback cleanup
-    unsafe { s.into_raw() };
-    Ok::<(), Status>(())
-}
-//
-//
-//
-// let open_stream_and_send = || {
-//     let s =
-//         Stream::open(&conn, StreamOpenFlags::UNIDIRECTIONAL, stream_handler)?;
-//     s.start(StreamStartFlags::NONE)?;
-//     // BufferRef needs to be heap allocated
-//     let mut data_to_send = vec![42u8; BLOCK_SIZE];
-
-//     data_to_send[0..8].copy_from_slice(&MAGIC_NUMBER.to_be_bytes());
-//     data_to_send[8..16].copy_from_slice(&now_ms().to_be_bytes());
-
-//     let b_ref = Box::new([BufferRef::from((*data_to_send).as_ref() as &[u8])]);
-//     // let b_ref = Box::new([BufferRef::from((*b).as_ref())]);
-
-//     let ctx = Box::new((data_to_send, b_ref));
-//     unsafe {
-//         s.send(
-//             ctx.1.as_slice(),
-//             SendFlags::FIN,
-//             ctx.as_ref() as *const _ as *const c_void,
-//         )
-//     }?;
-//     // detach the buffer
-//     let _ = Box::into_raw(ctx);
-//     // detach stream and let callback cleanup
-//     unsafe { s.into_raw() };
-//     Ok::<(), Status>(())
-// };

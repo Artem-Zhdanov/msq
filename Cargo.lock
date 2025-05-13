@@ -781,7 +781,7 @@ dependencies = [
  "futures",
  "futures-util",
  "libc",
- "msquic",
+ "msquic-async",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
@@ -797,9 +797,7 @@ dependencies = [
 
 [[package]]
 name = "msquic"
-version = "2.5.0-beta4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a2f39bfe01531b40e4795f9ed5ef8961a5f75bc321daf8eb547728504c7d23a"
+version = "2.5.0-beta"
 dependencies = [
  "bitflags",
  "c-types",
@@ -807,6 +805,20 @@ dependencies = [
  "ctor",
  "libc",
  "socket2",
+]
+
+[[package]]
+name = "msquic-async"
+version = "0.2.0"
+dependencies = [
+ "bytes",
+ "futures-io",
+ "libc",
+ "msquic",
+ "rangemap",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1096,6 +1108,12 @@ checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
 dependencies = [
  "getrandom 0.3.2",
 ]
+
+[[package]]
+name = "rangemap"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 
 [[package]]
 name = "redox_syscall"

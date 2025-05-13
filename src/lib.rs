@@ -2,7 +2,7 @@ pub mod config;
 pub mod metrics;
 pub mod quic_settings;
 
-use msquic::{CertificateFile, Credential};
+use msquic_async::msquic::{CertificateFile, Credential};
 
 pub const MAGIC_NUMBER: u64 = 123456789876543210;
 pub fn now_ms() -> u64 {
