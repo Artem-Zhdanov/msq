@@ -3,6 +3,8 @@ pub mod metrics;
 pub mod quic_settings;
 
 use msquic_async::msquic::{CertificateFile, Credential};
+use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use transport_layer::NetCredential;
 
 pub const MAGIC_NUMBER: u64 = 123456789876543210;
 pub fn now_ms() -> u64 {
@@ -74,6 +76,14 @@ pub fn get_test_cred() -> Credential {
         key_path.display().to_string(),
         cert_path.display().to_string(),
     ))
+}
+
+pub fn get_credential() -> NetCredential {
+    NetCredential {
+        my_key: PrivateKeyDer::from(PrivatePkcs8KeyDer::from(vec![])),
+        my_certs: vec![CertificateDer::from(vec![])],
+        root_certs: vec![],
+    }
 }
 
 #[cfg(test)]

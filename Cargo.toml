@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+transport_layer = { git = "https://github.com/gosh-sh/acki-nacki", package = "transport-layer", branch = "feature/node-1623-create-transport-layer-crate" }
 anyhow = "1.0.98"
 # ring = "0.17.14"
+rustls-pki-types = { version = "1.8.0" }
 clap = { version = "4.5.37", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["full"] }
 futures-util = "0.3.28"
