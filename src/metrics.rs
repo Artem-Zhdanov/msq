@@ -1,5 +1,7 @@
 use opentelemetry::metrics::Gauge;
 use opentelemetry::metrics::Histogram;
+// use opentelemetry::metrics::ObservableCounter;
+use opentelemetry::metrics::ObservableGauge;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,6 +19,11 @@ pub struct Metrics {
     pub sent_bytes: Gauge<u64>,
     pub recv_bytes: Gauge<u64>,
     pub lost_bytes: Gauge<u64>,
+
+    // Tokio runtime metrics: https://docs.rs/tokio/latest/tokio/runtime/struct.RuntimeMetrics.html
+    _tokio_num_alive_tasks: ObservableGauge<u64>,
+    _tokio_global_queue_depth: ObservableGauge<u64>,
+    //  _tokio_spawned_tasks_count: ObservableCounter<u64>,
 }
 
 pub fn init_metrics() -> Arc<Metrics> {
@@ -62,6 +69,40 @@ pub fn init_metrics() -> Arc<Metrics> {
         sent_bytes: meter.u64_gauge("quic_sent_bytes").build(),
         recv_bytes: meter.u64_gauge("quic_recv_bytes").build(),
         lost_bytes: meter.u64_gauge("quic_lost_bytes").build(),
+        _tokio_num_alive_tasks: meter
+            .u64_observable_gauge("node_tokio_num_alive_tasks")
+            .with_callback(move |observer| {
+                observer.observe(
+                    tokio::runtime::Handle::current()
+                        .metrics()
+                        .num_alive_tasks() as u64,
+                    &[],
+                )
+            })
+            .build(),
+
+        _tokio_global_queue_depth: meter
+            .u64_observable_gauge("node_tokio_global_queue_depth")
+            .with_callback(move |observer| {
+                observer.observe(
+                    tokio::runtime::Handle::current()
+                        .metrics()
+                        .global_queue_depth() as u64,
+                    &[],
+                )
+            })
+            .build(),
+        // _tokio_spawned_tasks_count: meter
+        //     .u64_observable_counter("node_tokio_spawned_tasks_count")
+        //     .with_callback(move |observer| {
+        //         observer.observe(
+        //             tokio::runtime::Handle::current()
+        //                 .metrics()
+        //                 .spawned_tasks_count(),
+        //             &[],
+        //         );
+        //     })
+        //     .build(),
     });
     metrics
 }
