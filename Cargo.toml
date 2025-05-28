@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-transport_layer = { git = "https://github.com/gosh-sh/acki-nacki", package = "transport-layer", branch = "feature/node-1623-create-transport-layer-crate" }
+transport_layer = { git = "https://github.com/gosh-sh/acki-nacki", package = "transport-layer", branch = "dev" }
 anyhow = "1.0.98"
 # ring = "0.17.14"
 rustls-pki-types = { version = "1.8.0" }
@@ -24,4 +24,6 @@ opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
 rand = "0.9.1"
 futures = "0.3.31"
 libc = "0.2.172"
-msquic-async = { path = "../msquic-async-rs/msquic-async" }
+rcgen = { version = "0.13.2", features = ["pem"] }
+
+# msquic-async = { path = "../msquic-async-rs/msquic-async" }

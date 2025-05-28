@@ -9,7 +9,8 @@ use msq::{
 };
 use std::{net::SocketAddr, sync::Arc};
 use transport_layer::{
-    NetConnection, NetIncomingRequest, NetListener, NetTransport, msquic::MsQuicTransport,
+    NetConnection, NetIncomingRequest, NetListener, NetRecvRequest, NetTransport,
+    msquic::MsQuicTransport,
 };
 
 #[tokio::main]
@@ -55,10 +56,11 @@ async fn run_server(metrics: Arc<Metrics>, address: String, port: u16) -> Result
         .expect("Check setting!");
 
     let incoming_request = listener.accept().await.unwrap();
-    let msq_conn = incoming_request.accept().await.unwrap();
+    let connection = incoming_request.accept().await.unwrap();
 
     loop {
-        match msq_conn.recv().await {
+        let message = connection.accept_recv().await.unwrap().recv().await;
+        match message {
             Ok(message) => {
                 // Check message consistency
                 let magic = u64::from_be_bytes(message[4..8 + 4].try_into()?);

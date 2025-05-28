@@ -25,7 +25,7 @@ checksum = "7729c3cde54d67063be556aeac75a81330d802f0259500ca40cb52967f975763"
 dependencies = [
  "aes-soft",
  "aesni",
- "cipher",
+ "cipher 0.2.5",
  "ctr",
 ]
 
@@ -35,7 +35,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be14c7498ea50828a38d0e24a765ed2effe92a705885b57d029cd67d45744072"
 dependencies = [
- "cipher",
+ "cipher 0.2.5",
  "opaque-debug",
 ]
 
@@ -45,7 +45,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea2e11f5e94c2f7d386164cc2aa1f97823fed6f259e486940a71c174dd01b0ce"
 dependencies = [
- "cipher",
+ "cipher 0.2.5",
  "opaque-debug",
 ]
 
@@ -309,6 +309,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-padding"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "blst"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -354,6 +363,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbc"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26b52a9543ae338f279b96b0b9fed9c8093744685043739079ce85cd58f289a6"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -381,6 +399,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12f8e7987cbd042a63249497f41aed09f8e65add917ea6566effbc56578d6801"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "cipher"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+dependencies = [
+ "crypto-common",
+ "inout",
 ]
 
 [[package]]
@@ -531,7 +559,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb4a30d54f7443bf3d6191dcd486aca19e67cb3c49fa7a06a319966346707e7f"
 dependencies = [
- "cipher",
+ "cipher 0.2.5",
 ]
 
 [[package]]
@@ -601,6 +629,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "des"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffdd80ce8ce993de27e9f063a444a4d53ce8e8db4c1f00cc03af5ad5a9867a1e"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,6 +645,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -962,6 +1000,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest",
+]
+
+[[package]]
 name = "httlib-huffman"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1195,6 +1242,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "inout"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
+dependencies = [
+ "block-padding",
+ "generic-array",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1352,11 +1409,11 @@ dependencies = [
  "futures",
  "futures-util",
  "libc",
- "msquic-async",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "rand 0.9.1",
+ "rcgen",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -1370,18 +1427,6 @@ dependencies = [
 
 [[package]]
 name = "msquic"
-version = "2.5.0-beta"
-dependencies = [
- "bitflags",
- "c-types",
- "cmake",
- "ctor",
- "libc",
- "socket2",
-]
-
-[[package]]
-name = "msquic"
 version = "2.6.0-beta"
 source = "git+https://github.com/gosh-sh/msquic.git?branch=gosh#6b49129a65c2a095396d30199bd6371e3388ef7c"
 dependencies = [
@@ -1391,20 +1436,6 @@ dependencies = [
  "ctor",
  "libc",
  "socket2",
-]
-
-[[package]]
-name = "msquic-async"
-version = "0.2.0"
-dependencies = [
- "bytes",
- "futures-io",
- "libc",
- "msquic 2.5.0-beta",
- "rangemap",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1941,6 +1972,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 
 [[package]]
+name = "rc2"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62c64daa8e9438b84aaae55010a93f396f8e60e3911590fcba770d04643fc1dd"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
 name = "rcgen"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2232,6 +2272,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2393,7 +2444,7 @@ dependencies = [
 [[package]]
 name = "telemetry_utils"
 version = "0.1.0"
-source = "git+https://github.com/gosh-sh/acki-nacki?branch=feature%2Fnode-1623-create-transport-layer-crate#aaf2b93d865a965391331519a0022c21335859a4"
+source = "git+https://github.com/gosh-sh/acki-nacki?branch=dev#3a5e2155509814779f29ea010b70adb0e47681c5"
 dependencies = [
  "anyhow",
  "opentelemetry",
@@ -2725,22 +2776,31 @@ dependencies = [
 [[package]]
 name = "transport-layer"
 version = "0.4.1"
-source = "git+https://github.com/gosh-sh/acki-nacki?branch=feature%2Fnode-1623-create-transport-layer-crate#aaf2b93d865a965391331519a0022c21335859a4"
+source = "git+https://github.com/gosh-sh/acki-nacki?branch=dev#3a5e2155509814779f29ea010b70adb0e47681c5"
 dependencies = [
  "anyhow",
  "async-channel",
  "async-trait",
  "bincode",
  "bytes",
+ "cbc",
+ "cipher 0.4.4",
+ "des",
  "futures",
  "futures-io",
+ "getrandom 0.2.16",
  "hex",
+ "hmac",
+ "lazy_static",
  "libc",
- "msquic 2.6.0-beta",
+ "msquic",
  "parking_lot",
  "rand 0.8.5",
  "rangemap",
+ "rc2",
+ "rcgen",
  "rustls-pki-types",
+ "sha1",
  "sha2",
  "telemetry_utils",
  "tempfile",
@@ -2749,6 +2809,7 @@ dependencies = [
  "tracing",
  "tvm_types",
  "wtransport",
+ "yasna",
 ]
 
 [[package]]
@@ -2759,8 +2820,8 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tvm_types"
-version = "2.13.0"
-source = "git+https://github.com/tvmlabs/tvm-sdk.git?tag=v2.13.0.an#d54eb3edd6ce0e1997872afdf971ddf18818157e"
+version = "2.15.0"
+source = "git+https://github.com/tvmlabs/tvm-sdk.git?tag=v2.15.0.an#a3ff42a516cfe76e6ecf1912e3f9dfed2a70d9ed"
 dependencies = [
  "aes-ctr",
  "base64",
