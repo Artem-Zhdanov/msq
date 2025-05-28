@@ -6,20 +6,7 @@ pub const BLOCK_SIZE: usize = 300 * 1024;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    pub subscriber: Vec<Subscriber>,
-    pub publisher: Vec<Peers>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Subscriber {
-    pub address: String,
-    pub ports: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Peers {
-    pub addr_peer: String,
-    pub ports: String,
+    pub ips: Vec<String>,
 }
 
 #[derive(Parser, Debug, Clone, Serialize)]
