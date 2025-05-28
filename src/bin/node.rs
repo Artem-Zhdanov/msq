@@ -110,7 +110,7 @@ async fn run_publishers(
                     break;
                 }
                 Err(err) => {
-                    tracing::error!("{err:?}");
+                    tracing::error!("Can't connect to ip {ip}: {err}");
                     metrics
                         .errors
                         .add(1, &[KeyValue::new("tag", TAG_CONN.to_string())]);
