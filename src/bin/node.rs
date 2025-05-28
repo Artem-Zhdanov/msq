@@ -57,7 +57,6 @@ async fn main() {
     let metrics = init_metrics();
 
     let sub_handle = tokio::spawn(run_subscriber(metrics.clone(), port));
-    println!("Subscriber run");
 
     let _ = tokio::spawn(run_publishers(
         metrics.clone(),
@@ -88,12 +87,9 @@ async fn run_publishers(
     block_size: usize,
 ) -> Result<()> {
     let len = ips.len();
-    //  let delta = 330000 / len as u64;
     let transport = MsQuicTransport::new();
 
     for ip in ips {
-        // Distribute threads starting time
-        //   sleep(Duration::from_micros(delta)).await;
         let socket_address: SocketAddr = format!("{ip}:{port}")
             .parse()
             .expect("Can't parse ip or port");
@@ -109,6 +105,7 @@ async fn run_publishers(
                 Ok(conn) => {
                     // This thread never panics/exits
                     let _ = tokio::spawn(pubslish(metrics, conn, block_size));
+                    sleep(Duration::from_secs(1)).await;
                     break;
                 }
                 Err(err) => {
@@ -130,8 +127,9 @@ async fn pubslish(
     connection: MsQuicNetConnection,
     block_size: usize,
 ) -> Result<()> {
+    tracing::info!("Sending to {}", connection.remote_addr());
+
     loop {
-        tracing::info!("Sending to {}", connection.remote_addr());
         let moment = Instant::now();
         match connection.send(&create_message(block_size)).await {
             Ok(_) => tracing::info!("Sent"),
@@ -224,7 +222,7 @@ async fn run_subscriber(metrics: Arc<Metrics>, port: u16) -> Result<()> {
                         }
                     }
                     Err(error) => {
-                        eprint!("Error: {:?}", error);
+                        tracing::error!("Error: {:?}", error);
                         metrics
                             .errors
                             .add(1, &[KeyValue::new("tag", TAG_DECODE.to_string())]);
