@@ -63,11 +63,11 @@ async fn run_server(metrics: Arc<Metrics>, address: String, port: u16) -> Result
         match message {
             Ok(message) => {
                 // Check message consistency
-                let magic = u64::from_be_bytes(message[4..8 + 4].try_into()?);
+                let magic = u64::from_be_bytes(message[..8].try_into()?);
                 if magic != MAGIC_NUMBER {
                     tracing::error!("Protocol mismatch!");
                 } else {
-                    let sent_ts = u64::from_be_bytes(message[8 + 4..16 + 4].try_into()?);
+                    let sent_ts = u64::from_be_bytes(message[8..16].try_into()?);
                     let latency = now_ms().saturating_sub(sent_ts);
                     tracing::info!("Got message, len {}, latency: {}", message.len(), latency);
                     metrics.latency.record(latency, &[]);
