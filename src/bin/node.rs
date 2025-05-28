@@ -67,7 +67,7 @@ async fn main() {
 
     match sub_handle.await {
         Ok(Err(error)) => {
-            tracing::error!("{error:?}");
+            tracing::error!("ERR #5: {error:?}");
             metrics
                 .errors
                 .add(1, &[KeyValue::new("tag", TAG_FATAL.to_string())]);
@@ -134,7 +134,7 @@ async fn pubslish(
         match connection.send(&create_message(block_size)).await {
             Ok(_) => tracing::info!("Sent"),
             Err(err) => {
-                tracing::error!("{err:?}");
+                tracing::error!("ERR #6: {err:?}");
                 metrics
                     .errors
                     .add(1, &[KeyValue::new("tag", TAG_SEND.to_string())]);
@@ -177,7 +177,7 @@ async fn run_subscriber(metrics: Arc<Metrics>, port: u16) -> Result<()> {
             let connection = match incoming_request.accept().await {
                 Ok(conn) => conn,
                 Err(error) => {
-                    tracing::error!("{error:?}");
+                    tracing::error!("ERR #1 {error:?}");
                     metrics
                         .errors
                         .add(1, &[KeyValue::new("tag", TAG_ACCEPT.to_string())]);
@@ -190,7 +190,7 @@ async fn run_subscriber(metrics: Arc<Metrics>, port: u16) -> Result<()> {
                 let message = match message {
                     Ok(message) => message.recv().await,
                     Err(error) => {
-                        tracing::error!("{error:?}");
+                        tracing::error!("ERR #2 {error:?}");
                         metrics
                             .errors
                             .add(1, &[KeyValue::new("tag", TAG_RCV.to_string())]);
@@ -222,7 +222,7 @@ async fn run_subscriber(metrics: Arc<Metrics>, port: u16) -> Result<()> {
                         }
                     }
                     Err(error) => {
-                        tracing::error!("Error: {:?}", error);
+                        tracing::error!("Error #3: {:?}", error);
                         metrics
                             .errors
                             .add(1, &[KeyValue::new("tag", TAG_DECODE.to_string())]);
